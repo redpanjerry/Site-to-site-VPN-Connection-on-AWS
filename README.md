@@ -21,7 +21,7 @@ A **site-to-site VPN** allows offices in multiple fixed locations to establish s
 - Download VPN-Connection.yml
 - Putty for login to your EC2 (Windows only)
 
-## Step by Step
+## Step-by-Step
 
 ### Create VPC environment and EC2 by CloudFormation
 
