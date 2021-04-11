@@ -1,0 +1,170 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Network Template: Sample template that creates a VPC with DNS and public IPs enabled.
+
+# This template creates:
+#   VPC
+#   Internet Gateway
+#   Public Route Table
+#   Public Subnet
+#   Security Groups
+#   EC2 instance
+
+######################
+# Resources section
+######################
+
+Parameters:
+
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instance
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+
+  InstanceType:
+    Description: WebServer EC2 instance type
+    Type: String
+    Default: t2.micro
+    AllowedValues: [t2.nano, t2.micro, t2.small, t2.medium, t2.large
+      t3.nano, t3.micro, t3.small, t3.medium, t3.large
+      m4.large, m5.large]
+    ConstraintDescription: must be a valid EC2 instance type.
+
+  #LatestAmiId:
+   # Type:  'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    #Default: '/aws/service/ami-amazon-linux-latest/amzn-ami-hvm-x86_64-gp2'
+
+Resources:
+
+  ## VPC
+
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      CidrBlock: 10.200.0.0/16
+      Tags:
+        - 
+          Key: "Name"
+          Value: "VPC-B"
+      
+  ## Internet Gateway
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  
+  VPCGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  
+  ## Public Route Table
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC      
+      Tags:
+        - 
+          Key: "Name"
+          Value: "VPC-B-Public-RT"
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  
+  ## Public Subnet
+  
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: 10.200.0.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - 
+          Key: "Name"
+          Value: "VPC-B-Public-Subnet"
+
+  ## Route Table Association to subnets
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+    DependsOn: "PublicRouteTable"
+  
+
+  ## Security Group
+
+  WebSecurityGroup:  
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: "VPC-B"
+      GroupDescription: "VPC-B"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0 
+        - IpProtocol: icmp
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 10.100.0.0/16
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 10.100.0.0/16    
+
+  ## EC2 instance
+
+  EC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      SubnetId: !Ref 'PublicSubnet'
+      InstanceType: !Ref 'InstanceType'
+      SecurityGroupIds: [!Ref 'WebSecurityGroup']
+      KeyName: !Ref 'KeyName'
+      ImageId: ami-00d101850e971728d
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Install Openswan
+          yum install openswan -y
+          # Download file
+          wget https://s3.amazonaws.com/lukederbucket2/File_For_Download/sysctl.conf
+          # Move File
+          mv sysctl.conf /etc
+          #  Restart network service
+          service network restart
+      Tags:
+        - 
+          Key: "Name"
+          Value: "EC2-B"    
+                    
+######################
+# Outputs section
+######################
+
+Outputs:
+  
+  VPC:
+    Description: VPC ID
+    Value: !Ref VPC
+    Export:
+      Name: !Sub '${AWS::StackName}-VPCID'
+  
+  PublicSubnet:
+    Description: The subnet ID to use for public web servers
+    Value: !Ref PublicSubnet
+    Export:
+      Name: !Sub '${AWS::StackName}-SubnetID'
