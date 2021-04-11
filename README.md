@@ -159,7 +159,7 @@ A **site-to-site VPN** allows offices in multiple fixed locations to establish s
 3. For **Amazon Machine Image**, select **Amazon Linux 2 AMI (HVM), SSD Volume Type**.
 
 <p align = "center">
-      <img src = "IMAGES/003-EC2-AMI-01.jpg" width = "80%" height = "80%">
+      <img src = "IMAGES/003-EC2-AMI-01.JPG" width = "80%" height = "80%">
       </p>
 
 4. For **Instance Type**, select **t2.micro**, then choose **Next: Configure Instance Detail**.
